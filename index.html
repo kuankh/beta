@@ -1,0 +1,719 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Beta 分布繪圖器</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Spectral:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#FCFCFB;
+    --rail:#EFF0EC;
+    --field:#FFFFFF;
+    --ink:#23272B;
+    --ink2:#6B706D;
+    --rule:#D4D7D0;
+    --rule-soft:#E4E6E0;
+    --focus:#2F5DA8;
+    --radius:3px;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{
+    background:var(--rail);
+    color:var(--ink);
+    font-family:"Noto Sans TC",-apple-system,"Segoe UI",sans-serif;
+    font-size:14px;
+    line-height:1.55;
+    -webkit-font-smoothing:antialiased;
+  }
+  .app{display:flex;flex-direction:column;height:100vh;min-height:0}
+
+  header{
+    display:flex;align-items:baseline;gap:14px;
+    padding:14px 22px;
+    border-bottom:1px solid var(--rule);
+    background:var(--paper);
+    flex:0 0 auto;
+  }
+  header h1{
+    font-family:Spectral,Georgia,serif;
+    font-size:19px;font-weight:600;margin:0;letter-spacing:.01em;
+  }
+  header .sub{color:var(--ink2);font-size:12.5px}
+
+  .body{display:flex;flex:1 1 auto;min-height:0}
+
+  /* ---------------------------------------------------------- rail --- */
+  .rail{
+    flex:0 0 316px;
+    overflow-y:auto;
+    background:var(--rail);
+    border-right:1px solid var(--rule);
+    padding:0 0 40px;
+  }
+  .sect{border-bottom:1px solid var(--rule-soft);padding:16px 18px}
+  .sect > h2{
+    font-size:12px;font-weight:500;color:var(--ink2);
+    margin:0 0 12px;letter-spacing:.02em;
+  }
+
+  .curve{
+    background:var(--field);
+    border:1px solid var(--rule);
+    border-radius:var(--radius);
+    padding:11px 12px 12px;
+    margin-bottom:10px;
+  }
+  .curve.off{opacity:.45}
+  .curve-top{display:flex;align-items:center;gap:9px;margin-bottom:9px}
+  .swatch{
+    -webkit-appearance:none;appearance:none;
+    width:20px;height:20px;padding:0;border:1px solid var(--rule);
+    border-radius:50%;background:none;cursor:pointer;flex:0 0 auto;
+  }
+  .swatch::-webkit-color-swatch-wrapper{padding:1px}
+  .swatch::-webkit-color-swatch{border:none;border-radius:50%}
+  .swatch::-moz-color-swatch{border:none;border-radius:50%}
+  .curve-name{
+    font-family:Spectral,Georgia,serif;font-size:15px;flex:1 1 auto;
+  }
+  .icon-btn{
+    border:none;background:none;color:var(--ink2);cursor:pointer;
+    font-size:15px;line-height:1;padding:3px 5px;border-radius:var(--radius);
+  }
+  .icon-btn:hover{background:var(--rail);color:var(--ink)}
+
+  .param{display:grid;grid-template-columns:18px 1fr 62px;gap:9px;align-items:center;margin-bottom:6px}
+  .param label{font-family:Spectral,Georgia,serif;font-size:15px;font-style:italic}
+  input[type=range]{width:100%;accent-color:var(--ink);margin:0}
+  input[type=number],input[type=text]{
+    width:100%;font:inherit;font-size:12.5px;
+    font-variant-numeric:tabular-nums;
+    padding:3px 5px;border:1px solid var(--rule);border-radius:var(--radius);
+    background:var(--field);color:var(--ink);
+  }
+  input:focus-visible,button:focus-visible,select:focus-visible{
+    outline:2px solid var(--focus);outline-offset:1px;
+  }
+
+  .stats{
+    display:grid;grid-template-columns:repeat(3,1fr);gap:2px 8px;
+    margin-top:9px;padding-top:9px;border-top:1px solid var(--rule-soft);
+    font-size:11px;color:var(--ink2);
+  }
+  .stats b{
+    display:block;font-weight:400;color:var(--ink);font-size:12.5px;
+    font-variant-numeric:tabular-nums;
+  }
+  .formula{
+    margin-top:8px;font-family:Spectral,Georgia,serif;font-size:12.5px;
+    color:var(--ink2);word-break:break-all;line-height:1.45;
+  }
+  .note{margin-top:6px;font-size:11.5px;color:var(--ink2)}
+
+  .btn{
+    font:inherit;font-size:13px;padding:6px 12px;cursor:pointer;
+    border:1px solid var(--rule);border-radius:var(--radius);
+    background:var(--field);color:var(--ink);
+  }
+  .btn:hover{border-color:var(--ink2)}
+  .btn.wide{width:100%}
+  .btn.solid{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+  .btn.solid:hover{background:#000}
+
+  .presets{display:flex;flex-wrap:wrap;gap:6px}
+  .presets .btn{font-size:12px;padding:4px 9px}
+
+  .check{display:flex;align-items:center;gap:8px;margin-bottom:7px;cursor:pointer}
+  .check input{accent-color:var(--ink);margin:0}
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .field{margin-bottom:9px}
+  .field > span{display:block;font-size:11.5px;color:var(--ink2);margin-bottom:3px}
+
+  /* --------------------------------------------------------- stage --- */
+  .stage{
+    flex:1 1 auto;min-width:0;overflow:auto;
+    padding:26px 30px;background:var(--rail);
+    display:flex;flex-direction:column;align-items:center;
+  }
+  .plate{
+    background:var(--paper);
+    border:1px solid var(--rule);
+    padding:16px 16px 8px;
+    width:100%;max-width:880px;
+  }
+  .plate svg{display:block;width:100%;height:auto}
+  .caption{
+    max-width:880px;width:100%;
+    font-family:Spectral,Georgia,serif;font-size:13.5px;line-height:1.6;
+    color:var(--ink2);margin:12px 0 0;
+  }
+  .caption em{color:var(--ink);font-style:normal}
+
+  .empty{
+    max-width:880px;width:100%;padding:60px 20px;text-align:center;
+    color:var(--ink2);font-family:Spectral,Georgia,serif;font-size:15px;
+  }
+
+  @media (max-width:820px){
+    .body{flex-direction:column}
+    .rail{flex:0 0 auto;border-right:none;border-bottom:1px solid var(--rule);max-height:46vh}
+    .stage{padding:16px}
+  }
+  @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1>Beta 分布繪圖器</h1>
+    <span class="sub">拖動參數即時重畫，可匯出 SVG 向量圖或 PNG</span>
+  </header>
+
+  <div class="body">
+    <aside class="rail">
+
+      <div class="sect">
+        <h2>曲線</h2>
+        <div id="curves"></div>
+        <button class="btn wide" id="add">加入曲線</button>
+      </div>
+
+      <div class="sect">
+        <h2>快速範例</h2>
+        <div class="presets" id="presets"></div>
+      </div>
+
+      <div class="sect">
+        <h2>顯示</h2>
+        <label class="check"><input type="checkbox" id="optFill" checked><span>曲線下方填色</span></label>
+        <label class="check"><input type="checkbox" id="optMarks" checked><span>標示眾數與期望值</span></label>
+        <label class="check"><input type="checkbox" id="optGrid" checked><span>水平格線</span></label>
+        <label class="check"><input type="checkbox" id="optLegend" checked><span>圖例</span></label>
+      </div>
+
+      <div class="sect">
+        <h2>座標軸</h2>
+        <label class="check"><input type="checkbox" id="optAutoX" checked><span>x 範圍自動</span></label>
+        <div class="row" id="xManual" hidden>
+          <div class="field"><span>x 最小</span><input type="number" id="xMin" value="0" step="0.05"></div>
+          <div class="field"><span>x 最大</span><input type="number" id="xMax" value="1" step="0.05"></div>
+        </div>
+        <label class="check"><input type="checkbox" id="optAutoY" checked><span>y 範圍自動</span></label>
+        <div class="field" id="yManual" hidden><span>y 最大</span><input type="number" id="yMax" value="14" step="0.5"></div>
+      </div>
+
+      <div class="sect">
+        <h2>文字</h2>
+        <div class="field"><span>x 軸標籤</span><input type="text" id="labX" value="x"></div>
+        <div class="field"><span>y 軸標籤</span><input type="text" id="labY" value="probability density"></div>
+      </div>
+
+      <div class="sect">
+        <h2>輸出</h2>
+        <div class="field"><span>檔名</span><input type="text" id="fname" value="beta_pdfs"></div>
+        <div class="field"><span>PNG 解析度</span>
+          <select id="scale" style="width:100%;font:inherit;font-size:12.5px;padding:3px 5px;border:1px solid var(--rule);border-radius:3px;background:#fff">
+            <option value="2">2× （1600 px 寬）</option>
+            <option value="3" selected>3× （2400 px 寬）</option>
+            <option value="4">4× （3200 px 寬）</option>
+          </select>
+        </div>
+        <div class="row">
+          <button class="btn solid" id="dlSvg">下載 SVG</button>
+          <button class="btn" id="dlPng">下載 PNG</button>
+        </div>
+        <p class="note">SVG 是向量檔，放大不失真，也能用 Inkscape 轉成 PDF 給 LaTeX 用。</p>
+      </div>
+
+    </aside>
+
+    <main class="stage">
+      <div class="plate" id="plate"></div>
+      <p class="caption" id="caption"></p>
+    </main>
+  </div>
+</div>
+
+<script>
+"use strict";
+
+/* ====================================================== mathematics === */
+
+const LANCZOS = [0.99999999999980993, 676.5203681218851, -1259.1392167224028,
+  771.32342877765313, -176.61502916214059, 12.507343278686905,
+  -0.13857109526572012, 9.9843695780195716e-6, 1.5056327351493116e-7];
+
+function lgamma(z){
+  if (z < 0.5) return Math.log(Math.PI / Math.sin(Math.PI * z)) - lgamma(1 - z);
+  z -= 1;
+  let x = LANCZOS[0];
+  for (let i = 1; i < 9; i++) x += LANCZOS[i] / (z + i);
+  const t = z + 7.5;
+  return 0.5 * Math.log(2 * Math.PI) + (z + 0.5) * Math.log(t) - t + Math.log(x);
+}
+
+// Density evaluated in log space, so large beta does not underflow.
+function betaPdf(x, a, b){
+  if (!(x > 0 && x < 1)) return NaN;
+  return Math.exp(lgamma(a + b) - lgamma(a) - lgamma(b)
+                  + (a - 1) * Math.log(x) + (b - 1) * Math.log1p(-x));
+}
+
+const modeOf = (a, b) => (a > 1 && b > 1) ? (a - 1) / (a + b - 2) : null;
+const meanOf = (a, b) => a / (a + b);
+const sdOf   = (a, b) => Math.sqrt(a * b / ((a + b) ** 2 * (a + b + 1)));
+
+// Exact normalising constant (alpha+beta-1)! / ((alpha-1)!(beta-1)!) for integers.
+function exactConst(a, b){
+  if (!Number.isInteger(a) || !Number.isInteger(b)) return null;
+  if (a < 1 || b < 1 || a + b > 400) return null;
+  const fact = n => { let r = 1n; for (let i = 2n; i <= BigInt(n); i++) r *= i; return r; };
+  return fact(a + b - 1) / (fact(a - 1) * fact(b - 1));
+}
+
+/* =========================================================== state === */
+
+const PALETTE = ["#3B6EA5", "#B5453C", "#4E8A5B", "#7B5EA7", "#B08A2E", "#3E8E93"];
+
+let curves = [
+  { a: 3,  b: 9,  color: PALETTE[0], on: true },
+  { a: 11, b: 81, color: PALETTE[1], on: true },
+];
+
+const opt = {
+  fill: true, marks: true, grid: true, legend: true,
+  autoX: true, autoY: true,
+  xMin: 0, xMax: 1, yMax: 14,
+  labX: "x", labY: "probability density",
+};
+
+const PRESETS = [
+  { name: "3,9 與 11,81",  set: [[3,9],[11,81]] },
+  { name: "均勻 / 鐘形 / 偏斜", set: [[1,1],[2,2],[5,2]] },
+  { name: "U 形",          set: [[0.5,0.5],[1,1],[4,4]] },
+  { name: "貝氏更新序列",    set: [[1,1],[3,9],[11,81]] },
+  { name: "非整數參數",      set: [[2.5,7.3]] },
+];
+
+/* ====================================================== formatting === */
+
+const fmt = (v, d = 3) => v.toFixed(d);
+
+function fmtParam(v){
+  return Number.isInteger(v) ? String(v) : String(Number(v.toFixed(2)));
+}
+
+function fmtConst(a, b){
+  const exact = exactConst(a, b);
+  if (exact !== null){
+    const s = exact.toString();
+    if (s.length <= 22) return s;
+  }
+  const c = Math.exp(lgamma(a + b) - lgamma(a) - lgamma(b));
+  return c.toExponential(4).replace("e+", " × 10^");
+}
+
+function supHtml(v){
+  const n = Number(v.toFixed(4));
+  return `<sup>${n}</sup>`;
+}
+
+// Returns HTML (not plain text) so exponents can use real superscripts.
+function formulaHtml(a, b){
+  const parts = [];
+  const cExact = exactConst(a, b);
+  let cStr;
+  if (cExact !== null && cExact.toString().length <= 22){
+    cStr = cExact.toString();
+  } else {
+    const c = Math.exp(lgamma(a + b) - lgamma(a) - lgamma(b));
+    if (c >= 1e-3 && c < 1e6){
+      cStr = String(Number(c.toPrecision(6)));
+    } else {
+      const [mant, ex] = c.toExponential(4).split("e");
+      cStr = `${mant} &times; 10<sup>${+ex}</sup>`;
+    }
+  }
+  const term = (base, p) => {
+    const n = Number(p.toFixed(4));
+    if (n === 0) return "";
+    if (n === 1) return base;
+    return base + `<sup>${n}</sup>`;
+  };
+  const tx = term("x", a - 1);
+  const tb = term("(1&minus;x)", b - 1);
+  if (cStr !== "1" || (!tx && !tb)) parts.push(cStr);
+  if (tx) parts.push(tx);
+  if (tb) parts.push(tb);
+  return "f(x) = " + parts.join(" ");
+}
+
+/* ========================================================= drawing === */
+
+const W = 820, H = 512, M = { l: 74, r: 30, t: 24, b: 60 };
+const PW = W - M.l - M.r, PH = H - M.t - M.b;
+const SERIF = "Spectral, Georgia, 'Times New Roman', Times, serif";
+const GRID = 1400;
+
+function niceTicks(lo, hi, target){
+  const span = hi - lo;
+  if (!(span > 0)) return [lo];
+  const raw = span / target;
+  const mag = Math.pow(10, Math.floor(Math.log10(raw)));
+  const n = raw / mag;
+  const step = (n < 1.5 ? 1 : n < 3 ? 2 : n < 7 ? 5 : 10) * mag;
+  const out = [];
+  for (let v = Math.ceil(lo / step - 1e-9) * step; v <= hi + 1e-9; v += step){
+    out.push(Math.abs(v) < 1e-12 ? 0 : +v.toPrecision(12));
+  }
+  return out;
+}
+
+function tickLabel(v, step){
+  const d = Math.max(0, -Math.floor(Math.log10(step)));
+  return v.toFixed(Math.min(d, 6));
+}
+
+function quantile(sorted, p){
+  if (!sorted.length) return 0;
+  const i = Math.min(sorted.length - 1, Math.max(0, Math.round(p * (sorted.length - 1))));
+  return sorted[i];
+}
+
+function computeRanges(active){
+  // Per-curve reference height: the true peak when a mode exists, otherwise a
+  // high quantile, so U-shaped densities do not blow the axis up to infinity.
+  let peak = 0;
+  const samples = active.map(c => {
+    const vals = [];
+    for (let i = 0; i <= GRID; i++){
+      const x = i / GRID;
+      vals.push(betaPdf(x, c.a, c.b));
+    }
+    const m = modeOf(c.a, c.b);
+    let ref;
+    if (m !== null){
+      ref = betaPdf(m, c.a, c.b);
+    } else {
+      const interior = vals.filter((v, i) => isFinite(v) && i > GRID * 0.004 && i < GRID * 0.996)
+                           .sort((p, q) => p - q);
+      ref = quantile(interior, 0.97);
+    }
+    if (isFinite(ref)) peak = Math.max(peak, ref);
+    return vals;
+  });
+
+  let yMax = opt.autoY ? peak * 1.22 : Math.max(1e-6, opt.yMax);
+  if (!isFinite(yMax) || yMax <= 0) yMax = 1;
+
+  let x0 = opt.xMin, x1 = opt.xMax;
+  if (opt.autoX){
+    const thr = peak * 0.005;
+    let lo = 1, hi = 0;
+    samples.forEach(vals => {
+      for (let i = 0; i <= GRID; i++){
+        if (isFinite(vals[i]) && vals[i] > thr){
+          const x = i / GRID;
+          if (x < lo) lo = x;
+          if (x > hi) hi = x;
+        }
+      }
+    });
+    if (hi <= lo){ lo = 0; hi = 1; }
+    const pad = (hi - lo) * 0.04;
+    x0 = Math.max(0, lo - pad);
+    x1 = Math.min(1, hi + pad);
+  }
+  if (!(x1 > x0)){ x0 = 0; x1 = 1; }
+  return { x0, x1, yMax, samples };
+}
+
+function esc(s){
+  return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+}
+
+function buildSvg(){
+  const active = curves.filter(c => c.on && c.a > 0 && c.b > 0);
+  const { x0, x1, yMax } = computeRanges(active.length ? active : [{a:1,b:1}]);
+
+  const sx = x => M.l + (x - x0) / (x1 - x0) * PW;
+  const sy = y => M.t + PH - Math.min(y, yMax * 1.6) / yMax * PH;
+
+  const xt = niceTicks(x0, x1, 7);
+  const yt = niceTicks(0, yMax, 6);
+  const xStep = xt.length > 1 ? xt[1] - xt[0] : 1;
+  const yStep = yt.length > 1 ? yt[1] - yt[0] : 1;
+
+  let s = "";
+
+  // grid
+  if (opt.grid){
+    yt.forEach(v => {
+      if (v === 0) return;
+      s += `<line x1="${M.l}" y1="${sy(v).toFixed(2)}" x2="${M.l+PW}" y2="${sy(v).toFixed(2)}" stroke="#E4E6E0" stroke-width="1"/>`;
+    });
+  }
+
+  // curves
+  active.forEach(c => {
+    const pts = [];
+    const N = 1600;
+    for (let i = 0; i <= N; i++){
+      const x = x0 + (x1 - x0) * i / N;
+      const y = betaPdf(x, c.a, c.b);
+      pts.push(isFinite(y) ? [sx(x), sy(y)] : null);
+    }
+    let d = "", open = false;
+    pts.forEach(p => {
+      if (!p){ open = false; return; }
+      d += (open ? "L" : "M") + p[0].toFixed(2) + " " + p[1].toFixed(2) + " ";
+      open = true;
+    });
+    if (opt.fill){
+      const base = (M.t + PH).toFixed(2);
+      const solid = pts.filter(Boolean);
+      if (solid.length > 1){
+        let f = `M${solid[0][0].toFixed(2)} ${base} `;
+        solid.forEach(p => { f += `L${p[0].toFixed(2)} ${p[1].toFixed(2)} `; });
+        f += `L${solid[solid.length-1][0].toFixed(2)} ${base} Z`;
+        s += `<path d="${f}" fill="${c.color}" fill-opacity="0.13"/>`;
+      }
+    }
+    s += `<path d="${d}" fill="none" stroke="${c.color}" stroke-width="2.1" stroke-linejoin="round" stroke-linecap="round"/>`;
+  });
+
+  s = `<g clip-path="url(#plotclip)">${s}</g>`;
+
+  // mode / mean markers
+  if (opt.marks){
+    active.forEach(c => {
+      const m = modeOf(c.a, c.b);
+      if (m === null || m < x0 || m > x1) return;
+      const peak = betaPdf(m, c.a, c.b);
+      if (!isFinite(peak)) return;
+      s += `<line x1="${sx(m).toFixed(2)}" y1="${(M.t+PH).toFixed(2)}" x2="${sx(m).toFixed(2)}" y2="${sy(peak).toFixed(2)}" stroke="${c.color}" stroke-width="1" stroke-dasharray="4 3"/>`;
+      const mu = meanOf(c.a, c.b);
+      if (mu >= x0 && mu <= x1){
+        const yv = betaPdf(mu, c.a, c.b);
+        if (isFinite(yv) && yv <= yMax * 1.6)
+          s += `<circle cx="${sx(mu).toFixed(2)}" cy="${sy(yv).toFixed(2)}" r="3.6" fill="#FCFCFB" stroke="${c.color}" stroke-width="1.5"/>`;
+      }
+    });
+  }
+
+  // axes
+  s += `<line x1="${M.l}" y1="${M.t+PH}" x2="${M.l+PW}" y2="${M.t+PH}" stroke="#23272B" stroke-width="1"/>`;
+  s += `<line x1="${M.l}" y1="${M.t}" x2="${M.l}" y2="${M.t+PH}" stroke="#23272B" stroke-width="1"/>`;
+
+  xt.forEach(v => {
+    const X = sx(v).toFixed(2);
+    s += `<line x1="${X}" y1="${M.t+PH}" x2="${X}" y2="${M.t+PH+5}" stroke="#23272B" stroke-width="1"/>`;
+    s += `<text x="${X}" y="${M.t+PH+21}" text-anchor="middle" font-family="${SERIF}" font-size="14" fill="#23272B">${tickLabel(v, xStep)}</text>`;
+  });
+  yt.forEach(v => {
+    const Y = sy(v).toFixed(2);
+    s += `<line x1="${M.l-5}" y1="${Y}" x2="${M.l}" y2="${Y}" stroke="#23272B" stroke-width="1"/>`;
+    s += `<text x="${M.l-10}" y="${(+Y+4.8).toFixed(2)}" text-anchor="end" font-family="${SERIF}" font-size="14" fill="#23272B">${tickLabel(v, yStep)}</text>`;
+  });
+
+  s += `<text x="${M.l+PW/2}" y="${H-16}" text-anchor="middle" font-family="${SERIF}" font-size="15" font-style="italic" fill="#23272B">${esc(opt.labX)}</text>`;
+  s += `<text transform="translate(20 ${M.t+PH/2}) rotate(-90)" text-anchor="middle" font-family="${SERIF}" font-size="14" fill="#23272B">${esc(opt.labY)}</text>`;
+
+  // legend
+  if (opt.legend && active.length){
+    const lh = 22, lw = 168;
+    const lx = M.l + PW - lw, ly = M.t + 8;
+    active.forEach((c, i) => {
+      const y = ly + i * lh;
+      s += `<line x1="${lx}" y1="${y+8}" x2="${lx+26}" y2="${y+8}" stroke="${c.color}" stroke-width="2.4"/>`;
+      s += `<text x="${lx+34}" y="${y+13}" font-family="${SERIF}" font-size="15" fill="#23272B">Beta(${fmtParam(c.a)}, ${fmtParam(c.b)})</text>`;
+    });
+  }
+
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">`
+       + `<defs><clipPath id="plotclip"><rect x="${M.l}" y="${M.t}" width="${PW}" height="${PH}"/></clipPath></defs>`
+       + `<rect x="0" y="0" width="${W}" height="${H}" fill="#FCFCFB"/>${s}</svg>`;
+}
+
+/* =============================================== interface rendering === */
+
+const $ = id => document.getElementById(id);
+
+function renderCurves(){
+  const host = $("curves");
+  host.innerHTML = "";
+  curves.forEach((c, i) => {
+    const el = document.createElement("div");
+    el.className = "curve" + (c.on ? "" : " off");
+    const m = modeOf(c.a, c.b);
+    el.innerHTML = `
+      <div class="curve-top">
+        <input class="swatch" type="color" value="${c.color}" data-k="color" aria-label="曲線顏色">
+        <span class="curve-name">Beta(${fmtParam(c.a)}, ${fmtParam(c.b)})</span>
+        <button class="icon-btn" data-act="toggle" title="顯示或隱藏">${c.on ? "◉" : "○"}</button>
+        <button class="icon-btn" data-act="remove" title="移除">✕</button>
+      </div>
+      <div class="param">
+        <label>α</label>
+        <input type="range" min="-1" max="2.3" step="0.001" value="${Math.log10(c.a)}" data-k="aSlide">
+        <input type="number" min="0.01" step="0.1" value="${c.a}" data-k="a">
+      </div>
+      <div class="param">
+        <label>β</label>
+        <input type="range" min="-1" max="2.3" step="0.001" value="${Math.log10(c.b)}" data-k="bSlide">
+        <input type="number" min="0.01" step="0.1" value="${c.b}" data-k="b">
+      </div>
+      <div class="stats">
+        <div>期望值<b>${fmt(meanOf(c.a,c.b))}</b></div>
+        <div>眾數<b>${m === null ? "—" : fmt(m)}</b></div>
+        <div>標準差<b>${fmt(sdOf(c.a,c.b))}</b></div>
+      </div>
+      <div class="formula">${formulaHtml(c.a, c.b)}</div>
+      ${m === null ? '<div class="note">此形狀沒有內部眾數。</div>' : ""}
+    `;
+
+    el.querySelectorAll("[data-k]").forEach(inp => {
+      const k = inp.dataset.k;
+      inp.addEventListener("input", () => {
+        if (k === "color") c.color = inp.value;
+        else if (k === "aSlide") c.a = +(Math.pow(10, +inp.value).toFixed(2));
+        else if (k === "bSlide") c.b = +(Math.pow(10, +inp.value).toFixed(2));
+        else {
+          const v = parseFloat(inp.value);
+          if (!(v > 0)) return;
+          c[k] = v;
+        }
+        renderCurves();
+        draw();
+      });
+    });
+    el.querySelector('[data-act="toggle"]').addEventListener("click", () => {
+      c.on = !c.on; renderCurves(); draw();
+    });
+    el.querySelector('[data-act="remove"]').addEventListener("click", () => {
+      curves.splice(i, 1); renderCurves(); draw();
+    });
+
+    host.appendChild(el);
+  });
+}
+
+function renderCaption(){
+  const active = curves.filter(c => c.on && c.a > 0 && c.b > 0);
+  const cap = $("caption");
+  if (!active.length){ cap.textContent = ""; return; }
+  const names = active.map(c => `Beta(${fmtParam(c.a)}, ${fmtParam(c.b)})`);
+  const list = names.length === 1 ? names[0]
+    : names.slice(0, -1).join(", ") + " and " + names[names.length - 1];
+  const marks = opt.marks
+    ? " Dashed lines mark the mode; open circles mark the mean."
+    : "";
+  cap.innerHTML = `<em>Figure 1.</em> Probability density function${active.length>1?"s":""} of ${esc(list)}.${marks}`;
+}
+
+function draw(){
+  const active = curves.filter(c => c.on && c.a > 0 && c.b > 0);
+  const plate = $("plate");
+  if (!active.length){
+    plate.innerHTML = '<div class="empty">目前沒有顯示中的曲線。<br>從左側加入一條，或打開已隱藏的曲線。</div>';
+  } else {
+    plate.innerHTML = buildSvg();
+  }
+  renderCaption();
+}
+
+/* ============================================================ export === */
+
+function download(blob, name){
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function currentSvg(){
+  const el = $("plate").querySelector("svg");
+  return el ? el.outerHTML : null;
+}
+
+$("dlSvg").addEventListener("click", () => {
+  const svg = currentSvg();
+  if (!svg) return;
+  download(new Blob([svg], { type: "image/svg+xml;charset=utf-8" }),
+           ($("fname").value || "beta_pdfs") + ".svg");
+});
+
+$("dlPng").addEventListener("click", () => {
+  const svg = currentSvg();
+  if (!svg) return;
+  const scale = +$("scale").value;
+  const img = new Image();
+  const blob = new Blob([svg], { type: "image/svg+xml;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  img.onload = () => {
+    const cv = document.createElement("canvas");
+    cv.width = W * scale; cv.height = H * scale;
+    const ctx = cv.getContext("2d");
+    ctx.fillStyle = "#FCFCFB";
+    ctx.fillRect(0, 0, cv.width, cv.height);
+    ctx.drawImage(img, 0, 0, cv.width, cv.height);
+    URL.revokeObjectURL(url);
+    cv.toBlob(b => download(b, ($("fname").value || "beta_pdfs") + ".png"), "image/png");
+  };
+  img.onerror = () => { URL.revokeObjectURL(url); alert("PNG 轉檔失敗，請改用 SVG。"); };
+  img.src = url;
+});
+
+/* =========================================================== wiring === */
+
+$("add").addEventListener("click", () => {
+  const used = new Set(curves.map(c => c.color));
+  const colour = PALETTE.find(p => !used.has(p)) || PALETTE[curves.length % PALETTE.length];
+  curves.push({ a: 2, b: 2, color: colour, on: true });
+  renderCurves(); draw();
+});
+
+$("presets").innerHTML = PRESETS
+  .map((p, i) => `<button class="btn" data-i="${i}">${p.name}</button>`).join("");
+$("presets").addEventListener("click", e => {
+  const btn = e.target.closest("button[data-i]");
+  if (!btn) return;
+  curves = PRESETS[+btn.dataset.i].set.map(([a, b], i) => ({
+    a, b, color: PALETTE[i % PALETTE.length], on: true
+  }));
+  renderCurves(); draw();
+});
+
+[["optFill","fill"],["optMarks","marks"],["optGrid","grid"],["optLegend","legend"]]
+  .forEach(([id, key]) => $(id).addEventListener("change", () => { opt[key] = $(id).checked; draw(); }));
+
+$("optAutoX").addEventListener("change", () => {
+  opt.autoX = $("optAutoX").checked;
+  $("xManual").hidden = opt.autoX;
+  draw();
+});
+$("optAutoY").addEventListener("change", () => {
+  opt.autoY = $("optAutoY").checked;
+  $("yManual").hidden = opt.autoY;
+  draw();
+});
+[["xMin","xMin"],["xMax","xMax"],["yMax","yMax"]].forEach(([id, key]) => {
+  $(id).addEventListener("input", () => {
+    const v = parseFloat($(id).value);
+    if (isFinite(v)) { opt[key] = v; draw(); }
+  });
+});
+[["labX","labX"],["labY","labY"]].forEach(([id, key]) => {
+  $(id).addEventListener("input", () => { opt[key] = $(id).value; draw(); });
+});
+
+renderCurves();
+draw();
+</script>
+</body>
+</html>
